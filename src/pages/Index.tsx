@@ -1,149 +1,113 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 
 type Page = "home" | "profile" | "search" | "messages" | "notifications" | "categories" | "popular" | "moderation";
 
 const CATEGORIES = [
-  { id: 1, name: "Технологии", emoji: "💻", count: 1240 },
-  { id: 2, name: "Наука", emoji: "🔬", count: 890 },
-  { id: 3, name: "Юмор", emoji: "😄", count: 2100 },
-  { id: 4, name: "Политика", emoji: "🏛️", count: 670 },
-  { id: 5, name: "Спорт", emoji: "⚽", count: 1500 },
-  { id: 6, name: "Путешествия", emoji: "✈️", count: 430 },
+  { name: "Технологии", emoji: "💻" },
+  { name: "Наука", emoji: "🔬" },
+  { name: "Юмор", emoji: "😄" },
+  { name: "Политика", emoji: "🏛️" },
+  { name: "Спорт", emoji: "⚽" },
+  { name: "Путешествия", emoji: "✈️" },
+  { name: "Общее", emoji: "💬" },
 ];
 
-const POSTS_DATA = [
-  {
-    id: 1,
-    author: "alex_dev",
-    category: "Технологии",
-    title: "Почему TypeScript вытесняет JavaScript в крупных проектах?",
-    body: "Заметил, что всё больше компаний переходят на TypeScript. Какие реальные преимущества вы получили при переходе? Стоит ли игра свеч для небольших команд?",
-    likes: 342,
-    comments: 87,
-    time: "2 часа назад",
-    liked: false,
-    reported: false,
-    tag: "Вопрос",
-  },
-  {
-    id: 2,
-    author: "marina_travels",
-    category: "Путешествия",
-    title: "Лучшие места для цифровых кочевников в 2025 году?",
-    body: "Планирую полгода поработать удалённо из разных стран. Что выбрать: Бали, Тбилиси или Лиссабон? Рассказывайте про визы, цены и интернет.",
-    likes: 215,
-    comments: 63,
-    time: "4 часа назад",
-    liked: true,
-    reported: false,
-    tag: "Обсуждение",
-  },
-  {
-    id: 3,
-    author: "science_nerd",
-    category: "Наука",
-    title: "Объясните квантовую запутанность простыми словами",
-    body: "Читал много статей, но всё равно не могу понять фундаментально. Кто-то может объяснить так, чтобы даже ребёнок понял?",
-    likes: 189,
-    comments: 41,
-    time: "6 часов назад",
-    liked: false,
-    reported: false,
-    tag: "Вопрос",
-  },
-  {
-    id: 4,
-    author: "sport_fan99",
-    category: "Спорт",
-    title: "Как начать бегать после 40 лет без травм?",
-    body: "Хочу заняться бегом, но боюсь нагрузки на суставы. Есть ли программы для начинающих? Какая обувь лучше?",
-    likes: 127,
-    comments: 58,
-    time: "8 часов назад",
-    liked: false,
-    reported: false,
-    tag: "Совет",
-  },
-  {
-    id: 5,
-    author: "humor_king",
-    category: "Юмор",
-    title: "Когда обновил Node.js и всё перестало работать 😅",
-    body: "Классика жанра. Поделитесь своими историями о том, как простое обновление превратилось в двухдневный квест.",
-    likes: 891,
-    comments: 234,
-    time: "1 день назад",
-    liked: true,
-    reported: false,
-    tag: "Юмор",
-  },
-];
-
-const MESSAGES_DATA = [
-  { id: 1, user: "marina_travels", text: "Привет! Ты был в Грузии?", time: "10:30", unread: true },
-  { id: 2, user: "science_nerd", text: "Спасибо за объяснение!", time: "вчера", unread: false },
-  { id: 3, user: "alex_dev", text: "Можешь кинуть ссылку?", time: "вчера", unread: true },
-  { id: 4, user: "sport_fan99", text: "Отличный совет про кроссовки", time: "2 дня", unread: false },
-];
-
-const NOTIFICATIONS_DATA = [
-  { id: 1, type: "like", text: "alex_dev лайкнул ваш пост", time: "5 мин назад", read: false },
-  { id: 2, type: "comment", text: "marina_travels прокомментировала: «Согласна полностью!»", time: "20 мин назад", read: false },
-  { id: 3, type: "mention", text: "science_nerd упомянул вас в обсуждении", time: "1 час назад", read: false },
-  { id: 4, type: "like", text: "humor_king лайкнул ваш комментарий", time: "3 часа назад", read: true },
-  { id: 5, type: "system", text: "Добро пожаловать! Настройте профиль", time: "вчера", read: true },
-];
-
-const REPORTS_DATA = [
-  { id: 1, post: "Как заработать миллион за неделю...", author: "spam_bot_1", reason: "Спам", status: "pending", reports: 12 },
-  { id: 2, post: "Политическое высказывание #4523", author: "troll_user", reason: "Оскорбления", status: "pending", reports: 7 },
-  { id: 3, post: "Реклама казино 🎰", author: "casino_ads", reason: "Реклама", status: "blocked", reports: 23 },
-];
-
-function getInitials(name: string) {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string) {
-  const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#DDA0DD", "#98D8C8", "#F7A072"];
-  return colors[name.charCodeAt(0) % colors.length];
-}
+const TAGS = ["Вопрос", "Обсуждение", "Совет", "Юмор", "Новость"];
 
 const tagColors: Record<string, string> = {
   Вопрос: "bg-blue-100 text-blue-600",
   Обсуждение: "bg-green-100 text-green-600",
   Юмор: "bg-yellow-100 text-yellow-700",
   Совет: "bg-purple-100 text-purple-600",
+  Новость: "bg-orange-100 text-orange-600",
 };
 
-const notifIcons: Record<string, string> = {
-  like: "Heart",
-  comment: "MessageSquare",
-  mention: "AtSign",
-  system: "Bell",
-};
+function getAvatarColor(name: string, color?: string): string {
+  if (color) return color;
+  const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#DDA0DD", "#F7A072", "#98D8C8"];
+  return colors[(name?.charCodeAt(0) || 0) % colors.length];
+}
 
-function PostCard({
-  post,
-  onLike,
-  onReport,
-}: {
-  post: (typeof POSTS_DATA)[0];
-  onLike: (id: number) => void;
-  onReport: () => void;
+function getInitials(name: string): string {
+  return (name || "?").slice(0, 2).toUpperCase();
+}
+
+type User = { id: number; username: string; email: string; avatar_color: string; bio: string; karma: number; posts_count?: number; comments_count?: number };
+type Post = { id: number; title: string; body: string; category: string; tag: string; likes: number; comments: number; time: string; author: string; avatar_color: string; liked: boolean };
+type Comment = { id: number; body: string; time: string; author: string; avatar_color: string };
+type Dialog = { user_id: number; username: string; avatar_color: string; last_msg: string; time: string; unread: number };
+type Message = { id: number; body: string; time: string; sender_id: number; sender: string; avatar_color: string; is_mine: boolean };
+type Report = { id: number; post: string; author: string; reason: string; status: string; reports: number };
+
+function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = isLogin ? await api.login(email, password) : await api.register(username, email, password);
+      if (res.error) { setError(res.error); }
+      else { localStorage.setItem("forum_token", res.token); onAuth(res.user); }
+    } catch { setError("Ошибка соединения"); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f6f7f8] flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm w-full max-w-md p-8">
+        <div className="flex items-center gap-2 mb-8">
+          <div className="w-9 h-9 rounded-full bg-[#ff4500] flex items-center justify-center">
+            <span className="text-white font-bold">Ф</span>
+          </div>
+          <span className="font-bold text-xl text-gray-900">Форум</span>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">{isLogin ? "Добро пожаловать" : "Создать аккаунт"}</h2>
+        <p className="text-sm text-gray-500 mb-6">{isLogin ? "Войдите, чтобы участвовать" : "Присоединяйтесь к сообществу"}</p>
+        <div className="space-y-3">
+          {!isLogin && (
+            <input type="text" placeholder="Имя пользователя" value={username} onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+          )}
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+          <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+        </div>
+        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+        <button onClick={submit} disabled={loading}
+          className="mt-5 w-full py-3 bg-[#ff4500] text-white rounded-xl font-semibold text-sm hover:bg-[#e03d00] transition-colors disabled:opacity-60">
+          {loading ? "Подождите..." : isLogin ? "Войти" : "Зарегистрироваться"}
+        </button>
+        <p className="mt-4 text-center text-sm text-gray-500">
+          {isLogin ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
+          <button onClick={() => { setIsLogin(!isLogin); setError(""); }} className="text-[#ff4500] font-medium hover:underline">
+            {isLogin ? "Зарегистрироваться" : "Войти"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PostCard({ post, onLike, onReport, onOpenComments }: {
+  post: Post; onLike: (id: number) => void; onReport: (id: number) => void; onOpenComments: (p: Post) => void;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-all p-4">
       <div className="flex items-start gap-3">
         <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-          <button
-            onClick={() => onLike(post.id)}
-            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-lg transition-all ${
-              post.liked ? "bg-[#fff0eb] text-[#ff4500]" : "text-gray-400 hover:bg-gray-100 hover:text-[#ff4500]"
-            }`}
-          >
+          <button onClick={() => onLike(post.id)}
+            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-lg transition-all ${post.liked ? "bg-[#fff0eb] text-[#ff4500]" : "text-gray-400 hover:bg-gray-100 hover:text-[#ff4500]"}`}>
             <Icon name="ArrowUp" size={16} />
             <span className="text-xs font-bold">{post.likes}</span>
           </button>
@@ -151,53 +115,33 @@ function PostCard({
             <Icon name="ArrowDown" size={14} />
           </button>
         </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-              style={{ backgroundColor: getAvatarColor(post.author) }}
-            >
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+              style={{ backgroundColor: getAvatarColor(post.author, post.avatar_color) }}>
               {getInitials(post.author)}
             </div>
             <span className="text-xs text-gray-500">{post.author}</span>
             <span className="text-gray-300 text-xs">·</span>
             <span className="text-xs text-gray-400">{post.time}</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${tagColors[post.tag] || "bg-gray-100 text-gray-500"}`}>
-              {post.tag}
-            </span>
+            {post.tag && <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${tagColors[post.tag] || "bg-gray-100 text-gray-500"}`}>{post.tag}</span>}
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{post.category}</span>
           </div>
-
           <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1.5">{post.title}</h3>
           <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">{post.body}</p>
-
           <div className="flex items-center gap-3 mt-3">
-            <button className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 text-xs transition-colors">
-              <Icon name="MessageSquare" size={14} />
-              <span>{post.comments} комментариев</span>
+            <button onClick={() => onOpenComments(post)} className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 text-xs transition-colors">
+              <Icon name="MessageSquare" size={14} /><span>{post.comments} комментариев</span>
             </button>
             <button className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 text-xs transition-colors">
-              <Icon name="Share2" size={14} />
-              <span>Поделиться</span>
+              <Icon name="Share2" size={14} /><span>Поделиться</span>
             </button>
             <button className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 text-xs transition-colors">
-              <Icon name="Bookmark" size={14} />
-              <span>Сохранить</span>
+              <Icon name="Bookmark" size={14} /><span>Сохранить</span>
             </button>
-            {!post.reported ? (
-              <button
-                onClick={onReport}
-                className="flex items-center gap-1.5 text-gray-300 hover:text-red-400 text-xs transition-colors ml-auto"
-              >
-                <Icon name="Flag" size={13} />
-              </button>
-            ) : (
-              <span className="text-xs text-red-400 ml-auto flex items-center gap-1">
-                <Icon name="Flag" size={12} />
-                Жалоба отправлена
-              </span>
-            )}
+            <button onClick={() => onReport(post.id)} className="ml-auto text-gray-300 hover:text-red-400 transition-colors">
+              <Icon name="Flag" size={13} />
+            </button>
           </div>
         </div>
       </div>
@@ -205,51 +149,234 @@ function PostCard({
   );
 }
 
-export default function Index() {
-  const [activePage, setActivePage] = useState<Page>("home");
-  const [posts, setPosts] = useState(POSTS_DATA);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeChat, setActiveChat] = useState<number | null>(null);
-  const [chatMessage, setChatMessage] = useState("");
-  const [notifications, setNotifications] = useState(NOTIFICATIONS_DATA);
-  const [reports, setReports] = useState(REPORTS_DATA);
-  const [reportModal, setReportModal] = useState<number | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+function CommentsModal({ post, currentUser, onClose }: { post: Post; currentUser: User; onClose: () => void }) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const unreadMessages = MESSAGES_DATA.filter((m) => m.unread).length;
+  useEffect(() => {
+    api.getComments(post.id).then((r) => { setComments(r.comments || []); setLoading(false); });
+  }, [post.id]);
 
-  const handleLike = (postId: number) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
-      )
-    );
+  const send = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    const res = await api.addComment(post.id, text.trim());
+    if (!res.error) {
+      setComments((prev) => [...prev, { id: res.id, body: text.trim(), time: "только что", author: currentUser.username, avatar_color: currentUser.avatar_color }]);
+      setText("");
+    }
+    setSending(false);
   };
 
-  const handleReport = (postId: number) => {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, reported: true } : p)));
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm line-clamp-1">{post.title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 ml-2 shrink-0"><Icon name="X" size={18} /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {loading && <p className="text-sm text-gray-400 text-center py-4">Загрузка...</p>}
+          {!loading && comments.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Нет комментариев. Будьте первым!</p>}
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                style={{ backgroundColor: getAvatarColor(c.author, c.avatar_color) }}>
+                {getInitials(c.author)}
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-gray-700">{c.author}</span>
+                  <span className="text-xs text-gray-400">{c.time}</span>
+                </div>
+                <p className="text-sm text-gray-700">{c.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="p-3 border-t border-gray-100 flex gap-2">
+          <input type="text" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="Написать комментарий..."
+            className="flex-1 px-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+          <button onClick={send} disabled={sending || !text.trim()}
+            className="w-9 h-9 rounded-full bg-[#ff4500] flex items-center justify-center hover:bg-[#e03d00] transition-colors disabled:opacity-50">
+            <Icon name="Send" size={16} className="text-white" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreatePostModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [category, setCategory] = useState("Общее");
+  const [tag, setTag] = useState("Обсуждение");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!title.trim() || !body.trim()) { setError("Заполните заголовок и текст"); return; }
+    setLoading(true);
+    const res = await api.createPost(title.trim(), body.trim(), category, tag);
+    if (res.error) { setError(res.error); setLoading(false); return; }
+    onCreated(); onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-lg">Создать пост</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icon name="X" size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <input type="text" placeholder="Заголовок *" value={title} onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+          <textarea placeholder="Текст поста *" value={body} onChange={(e) => setBody(e.target.value)} rows={4}
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500] resize-none" />
+          <div className="flex gap-3">
+            <select value={category} onChange={(e) => setCategory(e.target.value)}
+              className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]">
+              {CATEGORIES.map((c) => <option key={c.name} value={c.name}>{c.emoji} {c.name}</option>)}
+            </select>
+            <select value={tag} onChange={(e) => setTag(e.target.value)}
+              className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]">
+              {TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <button onClick={submit} disabled={loading}
+            className="w-full py-3 bg-[#ff4500] text-white rounded-xl font-semibold text-sm hover:bg-[#e03d00] transition-colors disabled:opacity-60">
+            {loading ? "Публикую..." : "Опубликовать"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Index() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [activePage, setActivePage] = useState<Page>("home");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [online, setOnline] = useState(0);
+  const [dialogs, setDialogs] = useState<Dialog[]>([]);
+  const [activeChat, setActiveChat] = useState<Dialog | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatMsg, setChatMsg] = useState("");
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportModal, setReportModal] = useState<number | null>(null);
+  const [commentsPost, setCommentsPost] = useState<Post | null>(null);
+  const [createModal, setCreateModal] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userResults, setUserResults] = useState<{ id: number; username: string; avatar_color: string }[]>([]);
+  const [editBio, setEditBio] = useState("");
+  const [editingBio, setEditingBio] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("forum_token");
+    if (!token) { setAuthChecked(true); return; }
+    api.me().then((res) => {
+      if (res.user) setUser(res.user);
+      else localStorage.removeItem("forum_token");
+      setAuthChecked(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const tick = () => api.online().then((r) => setOnline(r.online || 0));
+    tick();
+    const interval = setInterval(tick, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const loadPosts = useCallback(async () => {
+    setPostsLoading(true);
+    const res = await api.getPosts({
+      category: activeCategory || undefined,
+      search: searchQuery || undefined,
+      sort: activePage === "popular" ? "top" : "new",
+    });
+    setPosts(res.posts || []);
+    setPostsLoading(false);
+  }, [activeCategory, searchQuery, activePage]);
+
+  useEffect(() => {
+    if (user && (activePage === "home" || activePage === "popular" || activePage === "search")) loadPosts();
+  }, [user, activePage, activeCategory, loadPosts]);
+
+  useEffect(() => {
+    if (user && activePage === "messages") api.getDialogs().then((r) => setDialogs(r.dialogs || []));
+    if (user && activePage === "moderation") api.getReports().then((r) => setReports(r.reports || []));
+  }, [user, activePage]);
+
+  useEffect(() => {
+    if (activeChat) {
+      api.getMessages(activeChat.user_id).then((r) => {
+        setMessages(r.messages || []);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      });
+    }
+  }, [activeChat]);
+
+  const handleLike = async (postId: number) => {
+    const res = await api.likePost(postId);
+    if (!res.error) setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, liked: res.liked, likes: res.likes } : p));
+  };
+
+  const handleReport = async (postId: number, reason: string) => {
+    await api.reportPost(postId, reason);
     setReportModal(null);
   };
 
-  const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-
-  const handleModerationAction = (reportId: number, action: "block" | "dismiss") => {
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: action === "block" ? "blocked" : "dismissed" } : r))
-    );
+  const handleSendMsg = async () => {
+    if (!chatMsg.trim() || !activeChat || !user) return;
+    const res = await api.sendMessage(activeChat.user_id, chatMsg.trim());
+    if (!res.error) {
+      setMessages((prev) => [...prev, { id: res.id, body: chatMsg.trim(), time: "только что", sender_id: user.id, sender: user.username, avatar_color: user.avatar_color, is_mine: true }]);
+      setChatMsg("");
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
   };
 
-  const filteredPosts = posts.filter((p) => {
-    const matchSearch =
-      !searchQuery ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.body.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = !activeCategory || p.category === activeCategory;
-    return matchSearch && matchCategory;
-  });
+  const handleModerationAction = async (reportId: number, action: "blocked" | "dismissed") => {
+    await api.moderate(reportId, action);
+    setReports((prev) => prev.map((r) => r.id === reportId ? { ...r, status: action } : r));
+  };
 
-  const popularPosts = [...posts].sort((a, b) => b.likes - a.likes);
+  const handleUserSearch = async (q: string) => {
+    setUserSearch(q);
+    if (q.length >= 2) { const res = await api.searchUsers(q); setUserResults(res.users || []); }
+    else setUserResults([]);
+  };
+
+  const handleSaveBio = async () => {
+    setProfileLoading(true);
+    await api.updateProfile(editBio);
+    if (user) setUser({ ...user, bio: editBio });
+    setEditingBio(false);
+    setProfileLoading(false);
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    localStorage.removeItem("forum_token");
+    setUser(null);
+  };
+
+  const unreadMessages = dialogs.reduce((sum, d) => sum + (d.unread || 0), 0);
+  const shownPosts = activePage === "popular" ? [...posts].sort((a, b) => b.likes - a.likes) : posts;
 
   const navItems: { id: Page; icon: string; label: string; badge?: number }[] = [
     { id: "home", icon: "Home", label: "Главная" },
@@ -257,10 +384,17 @@ export default function Index() {
     { id: "categories", icon: "LayoutGrid", label: "Категории" },
     { id: "search", icon: "Search", label: "Поиск" },
     { id: "messages", icon: "MessageSquare", label: "Сообщения", badge: unreadMessages },
-    { id: "notifications", icon: "Bell", label: "Уведомления", badge: unreadCount },
     { id: "moderation", icon: "Shield", label: "Модерация" },
     { id: "profile", icon: "User", label: "Профиль" },
   ];
+
+  if (!authChecked) return (
+    <div className="min-h-screen bg-[#f6f7f8] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-[#ff4500] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!user) return <AuthScreen onAuth={(u) => setUser(u)} />;
 
   return (
     <div className="min-h-screen bg-[#f6f7f8]">
@@ -273,52 +407,31 @@ export default function Index() {
             </div>
             <span className="font-bold text-lg text-gray-900 hidden sm:block">Форум</span>
           </div>
-
           <div className="flex-1 max-w-md">
             <div className="relative">
               <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Поиск по постам..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (e.target.value) setActivePage("search");
-                  else setActivePage("home");
-                }}
-                className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500] focus:bg-white transition-all"
-              />
+              <input type="text" placeholder="Поиск по постам..." value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setActivePage("search"); }}
+                className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500] focus:bg-white transition-all" />
             </div>
           </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActivePage("notifications")}
-              className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <Icon name="Bell" size={20} className="text-gray-600" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-[#ff4500] rounded-full text-white text-[10px] flex items-center justify-center font-bold">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActivePage("messages")}
-              className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
+          <div className="flex items-center gap-2">
+            {online > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-green-50 rounded-full">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs text-green-700 font-medium">{online} онлайн</span>
+              </div>
+            )}
+            <button onClick={() => setActivePage("messages")} className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
               <Icon name="MessageSquare" size={20} className="text-gray-600" />
               {unreadMessages > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
-                  {unreadMessages}
-                </span>
+                <span className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">{unreadMessages}</span>
               )}
             </button>
-            <button
-              onClick={() => setActivePage("profile")}
-              className="ml-1 w-8 h-8 rounded-full bg-[#ff4500] flex items-center justify-center text-white text-sm font-bold hover:bg-[#e03d00] transition-colors"
-            >
-              Я
+            <button onClick={() => setActivePage("profile")}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: user.avatar_color }}>
+              {getInitials(user.username)}
             </button>
           </div>
         </div>
@@ -328,86 +441,78 @@ export default function Index() {
         {/* Left Sidebar */}
         <aside className="hidden lg:flex flex-col gap-1 w-52 shrink-0">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActivePage(item.id)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activePage === item.id ? "bg-[#fff0eb] text-[#ff4500]" : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
+            <button key={item.id} onClick={() => setActivePage(item.id)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${activePage === item.id ? "bg-[#fff0eb] text-[#ff4500]" : "text-gray-600 hover:bg-gray-100"}`}>
               <div className="relative">
                 <Icon name={item.icon} size={18} />
-                {item.badge ? (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#ff4500] rounded-full text-white text-[9px] flex items-center justify-center font-bold">
-                    {item.badge}
-                  </span>
-                ) : null}
+                {item.badge ? <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#ff4500] rounded-full text-white text-[9px] flex items-center justify-center font-bold">{item.badge}</span> : null}
               </div>
               <span>{item.label}</span>
             </button>
           ))}
+          {online > 0 && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-green-700 font-medium">{online} онлайн</span>
+            </div>
+          )}
         </aside>
 
-        {/* Main Content */}
+        {/* Main */}
         <main className="flex-1 min-w-0 pb-20 lg:pb-0">
 
-          {/* HOME / SEARCH */}
-          {(activePage === "home" || activePage === "search") && (
+          {/* HOME / POPULAR / SEARCH */}
+          {(activePage === "home" || activePage === "popular" || activePage === "search") && (
             <div className="space-y-3">
-              {activePage === "search" && searchQuery && (
-                <p className="text-sm text-gray-500">
-                  Результаты: <strong className="text-gray-800">«{searchQuery}»</strong> — {filteredPosts.length} постов
-                </p>
+              {activePage === "popular" && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon name="TrendingUp" size={20} className="text-[#ff4500]" />
+                  <h2 className="font-bold text-lg text-gray-900">Популярное</h2>
+                </div>
               )}
               {activePage === "home" && (
                 <div className="bg-white rounded-xl p-4 border border-gray-200 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#ff4500] flex items-center justify-center text-white font-bold shrink-0">Я</div>
-                  <button className="flex-1 text-left px-4 py-2.5 bg-gray-100 rounded-full text-sm text-gray-400 hover:bg-gray-200 transition-colors">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ backgroundColor: user.avatar_color }}>
+                    {getInitials(user.username)}
+                  </div>
+                  <button onClick={() => setCreateModal(true)} className="flex-1 text-left px-4 py-2.5 bg-gray-100 rounded-full text-sm text-gray-400 hover:bg-gray-200 transition-colors">
                     Задайте вопрос сообществу...
                   </button>
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                    <Icon name="Image" size={18} className="text-gray-500" />
+                  <button onClick={() => setCreateModal(true)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <Icon name="PlusCircle" size={20} className="text-[#ff4500]" />
                   </button>
                 </div>
               )}
-
-              {activeCategory && (
+              {activeCategory && activePage === "home" && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">Категория: <strong className="text-gray-800">{activeCategory}</strong></span>
                   <button onClick={() => setActiveCategory(null)} className="text-xs text-[#ff4500] hover:underline">× сбросить</button>
                 </div>
               )}
-
-              {filteredPosts.length === 0 ? (
+              {postsLoading ? (
+                <div className="py-12 text-center"><div className="w-8 h-8 border-2 border-[#ff4500] border-t-transparent rounded-full animate-spin mx-auto" /></div>
+              ) : shownPosts.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
-                  <Icon name="Search" size={40} className="mx-auto mb-3 opacity-40" />
-                  <p>Ничего не найдено</p>
+                  <Icon name="FileText" size={40} className="mx-auto mb-3 opacity-30" />
+                  <p>{searchQuery ? "Ничего не найдено" : "Постов нет. Создайте первый!"}</p>
+                  {!searchQuery && (
+                    <button onClick={() => setCreateModal(true)} className="mt-3 px-5 py-2 bg-[#ff4500] text-white rounded-full text-sm font-medium hover:bg-[#e03d00] transition-colors">
+                      Создать пост
+                    </button>
+                  )}
                 </div>
               ) : (
-                filteredPosts.map((post) => (
-                  <PostCard key={post.id} post={post} onLike={handleLike} onReport={() => setReportModal(post.id)} />
+                shownPosts.map((post, i) => (
+                  <div key={post.id} className={activePage === "popular" ? "flex items-start gap-3" : ""}>
+                    {activePage === "popular" && (
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 mt-1">{i + 1}</div>
+                    )}
+                    <div className={activePage === "popular" ? "flex-1" : ""}>
+                      <PostCard post={post} onLike={handleLike} onReport={(id) => setReportModal(id)} onOpenComments={(p) => setCommentsPost(p)} />
+                    </div>
+                  </div>
                 ))
               )}
-            </div>
-          )}
-
-          {/* POPULAR */}
-          {activePage === "popular" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon name="TrendingUp" size={20} className="text-[#ff4500]" />
-                <h2 className="font-bold text-lg text-gray-900">Популярное сегодня</h2>
-              </div>
-              {popularPosts.map((post, i) => (
-                <div key={post.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 mt-1">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1">
-                    <PostCard post={post} onLike={handleLike} onReport={() => setReportModal(post.id)} />
-                  </div>
-                </div>
-              ))}
             </div>
           )}
 
@@ -417,17 +522,10 @@ export default function Index() {
               <h2 className="font-bold text-lg text-gray-900 mb-4">Все категории</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setActiveCategory(cat.name === activeCategory ? null : cat.name);
-                      setActivePage("home");
-                    }}
-                    className="bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-[#ff4500] hover:shadow-sm transition-all group"
-                  >
+                  <button key={cat.name} onClick={() => { setActiveCategory(cat.name); setActivePage("home"); }}
+                    className="bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-[#ff4500] hover:shadow-sm transition-all group">
                     <div className="text-2xl mb-2">{cat.emoji}</div>
                     <div className="font-semibold text-gray-800 text-sm group-hover:text-[#ff4500] transition-colors">{cat.name}</div>
-                    <div className="text-xs text-gray-400 mt-1">{cat.count.toLocaleString()} постов</div>
                   </button>
                 ))}
               </div>
@@ -439,30 +537,44 @@ export default function Index() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="flex h-[520px]">
                 <div className="w-64 border-r border-gray-100 flex flex-col shrink-0">
-                  <div className="p-4 border-b border-gray-100">
-                    <h2 className="font-bold text-gray-900">Сообщения</h2>
+                  <div className="p-3 border-b border-gray-100">
+                    <h2 className="font-bold text-gray-900 mb-2">Сообщения</h2>
+                    <div className="relative">
+                      <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="text" placeholder="Найти пользователя..." value={userSearch} onChange={(e) => handleUserSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-gray-100 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+                    </div>
+                    {userResults.length > 0 && (
+                      <div className="mt-1 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                        {userResults.map((u) => (
+                          <button key={u.id}
+                            onClick={() => { setActiveChat({ user_id: u.id, username: u.username, avatar_color: u.avatar_color, last_msg: "", time: "", unread: 0 }); setUserSearch(""); setUserResults([]); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: getAvatarColor(u.username, u.avatar_color) }}>
+                              {getInitials(u.username)}
+                            </div>
+                            <span className="text-sm text-gray-700">{u.username}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="overflow-y-auto flex-1">
-                    {MESSAGES_DATA.map((msg) => (
-                      <button
-                        key={msg.id}
-                        onClick={() => setActiveChat(msg.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 ${activeChat === msg.id ? "bg-[#fff0eb]" : ""}`}
-                      >
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                          style={{ backgroundColor: getAvatarColor(msg.user) }}
-                        >
-                          {getInitials(msg.user)}
+                    {dialogs.length === 0 && <p className="text-xs text-gray-400 text-center p-4">Нет диалогов. Найдите пользователя выше.</p>}
+                    {dialogs.map((d) => (
+                      <button key={d.user_id} onClick={() => setActiveChat(d)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 ${activeChat?.user_id === d.user_id ? "bg-[#fff0eb]" : ""}`}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: getAvatarColor(d.username, d.avatar_color) }}>
+                          {getInitials(d.username)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-gray-800">{msg.user}</span>
-                            <span className="text-xs text-gray-400">{msg.time}</span>
+                            <span className="text-sm font-semibold text-gray-800">{d.username}</span>
+                            <span className="text-xs text-gray-400">{d.time}</span>
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{msg.text}</p>
+                          <p className="text-xs text-gray-500 truncate">{d.last_msg}</p>
                         </div>
-                        {msg.unread && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+                        {d.unread > 0 && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
                       </button>
                     ))}
                   </div>
@@ -471,33 +583,30 @@ export default function Index() {
                   {activeChat ? (
                     <>
                       <div className="p-4 border-b border-gray-100 flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                          style={{ backgroundColor: getAvatarColor(MESSAGES_DATA.find((m) => m.id === activeChat)?.user || "") }}
-                        >
-                          {getInitials(MESSAGES_DATA.find((m) => m.id === activeChat)?.user || "")}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: getAvatarColor(activeChat.username, activeChat.avatar_color) }}>
+                          {getInitials(activeChat.username)}
                         </div>
-                        <span className="font-semibold text-gray-800">
-                          {MESSAGES_DATA.find((m) => m.id === activeChat)?.user}
-                        </span>
+                        <span className="font-semibold text-gray-800">{activeChat.username}</span>
                       </div>
-                      <div className="flex-1 p-4 flex flex-col justify-end gap-3">
-                        <div className="self-start bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-2 max-w-xs">
-                          <p className="text-sm text-gray-800">{MESSAGES_DATA.find((m) => m.id === activeChat)?.text}</p>
-                        </div>
-                        <div className="self-end bg-[#ff4500] rounded-2xl rounded-tr-sm px-4 py-2 max-w-xs">
-                          <p className="text-sm text-white">Да, был! Отличная страна 👍</p>
-                        </div>
+                      <div className="flex-1 p-4 flex flex-col gap-2 overflow-y-auto">
+                        {messages.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Начните переписку!</p>}
+                        {messages.map((m) => (
+                          <div key={m.id} className={`flex ${m.is_mine ? "justify-end" : "justify-start"}`}>
+                            <div className={`px-4 py-2 rounded-2xl max-w-xs ${m.is_mine ? "bg-[#ff4500] text-white rounded-tr-sm" : "bg-gray-100 text-gray-800 rounded-tl-sm"}`}>
+                              <p className="text-sm">{m.body}</p>
+                              <p className={`text-[10px] mt-0.5 ${m.is_mine ? "text-orange-200" : "text-gray-400"}`}>{m.time}</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
                       </div>
                       <div className="p-3 border-t border-gray-100 flex gap-2">
-                        <input
-                          type="text"
-                          value={chatMessage}
-                          onChange={(e) => setChatMessage(e.target.value)}
+                        <input type="text" value={chatMsg} onChange={(e) => setChatMsg(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSendMsg()}
                           placeholder="Напишите сообщение..."
-                          className="flex-1 px-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]"
-                        />
-                        <button className="w-9 h-9 rounded-full bg-[#ff4500] flex items-center justify-center hover:bg-[#e03d00] transition-colors">
+                          className="flex-1 px-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500]" />
+                        <button onClick={handleSendMsg} disabled={!chatMsg.trim()}
+                          className="w-9 h-9 rounded-full bg-[#ff4500] flex items-center justify-center hover:bg-[#e03d00] transition-colors disabled:opacity-50">
                           <Icon name="Send" size={16} className="text-white" />
                         </button>
                       </div>
@@ -506,7 +615,7 @@ export default function Index() {
                     <div className="flex-1 flex items-center justify-center text-gray-400">
                       <div className="text-center">
                         <Icon name="MessageSquare" size={40} className="mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">Выберите чат</p>
+                        <p className="text-sm">Выберите чат или найдите пользователя</p>
                       </div>
                     </div>
                   )}
@@ -515,88 +624,56 @@ export default function Index() {
             </div>
           )}
 
-          {/* NOTIFICATIONS */}
-          {activePage === "notifications" && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="font-bold text-gray-900">Уведомления</h2>
-                {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="text-xs text-[#ff4500] hover:underline font-medium">
-                    Прочитать все
-                  </button>
-                )}
-              </div>
-              {notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${!notif.read ? "bg-[#fff8f6]" : ""}`}
-                >
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                      notif.type === "like" ? "bg-red-100 text-red-500" :
-                      notif.type === "comment" ? "bg-blue-100 text-blue-500" :
-                      notif.type === "mention" ? "bg-purple-100 text-purple-500" :
-                      "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    <Icon name={notifIcons[notif.type]} size={16} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-800">{notif.text}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{notif.time}</p>
-                  </div>
-                  {!notif.read && <div className="w-2 h-2 rounded-full bg-[#ff4500] shrink-0 mt-2" />}
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* PROFILE */}
           {activePage === "profile" && (
             <div className="space-y-4">
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="h-24 bg-gradient-to-r from-[#ff4500] to-[#ff6534]" />
+                <div className="h-24" style={{ background: `linear-gradient(135deg, ${user.avatar_color}, #ff4500)` }} />
                 <div className="px-6 pb-6">
                   <div className="flex items-end gap-4 -mt-8 mb-4">
-                    <div className="w-16 h-16 rounded-full border-4 border-white bg-[#ff4500] flex items-center justify-center text-white text-xl font-bold">
-                      Я
+                    <div className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white text-xl font-bold" style={{ backgroundColor: user.avatar_color }}>
+                      {getInitials(user.username)}
                     </div>
                     <div className="pb-1">
-                      <h2 className="font-bold text-lg text-gray-900">my_username</h2>
-                      <p className="text-sm text-gray-500">u/my_username</p>
+                      <h2 className="font-bold text-lg text-gray-900">{user.username}</h2>
+                      <p className="text-sm text-gray-500">u/{user.username}</p>
                     </div>
-                    <button className="ml-auto px-4 py-1.5 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                      Редактировать
+                    <button onClick={handleLogout} className="ml-auto px-4 py-1.5 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                      Выйти
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Люблю технологии, путешествия и хорошие вопросы. Здесь с 2024 года.
-                  </p>
+                  {editingBio ? (
+                    <div className="mb-4 space-y-2">
+                      <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} rows={3}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ff4500] resize-none"
+                        placeholder="Расскажите о себе..." />
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveBio} disabled={profileLoading} className="px-4 py-1.5 bg-[#ff4500] text-white rounded-full text-sm font-medium hover:bg-[#e03d00] disabled:opacity-60">Сохранить</button>
+                        <button onClick={() => setEditingBio(false)} className="px-4 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">Отмена</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-4 flex items-start gap-2">
+                      <p className="text-sm text-gray-600 flex-1">{user.bio || "Нет описания"}</p>
+                      <button onClick={() => { setEditBio(user.bio || ""); setEditingBio(true); }} className="text-gray-400 hover:text-[#ff4500] transition-colors shrink-0">
+                        <Icon name="Pencil" size={14} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex gap-6">
-                    {[{ label: "Постов", value: "24" }, { label: "Карма", value: "1.2K" }, { label: "Комментариев", value: "189" }].map((stat) => (
-                      <div key={stat.label} className="text-center">
-                        <div className="font-bold text-gray-900">{stat.value}</div>
-                        <div className="text-xs text-gray-500">{stat.label}</div>
+                    {[{ label: "Постов", value: user.posts_count ?? 0 }, { label: "Карма", value: user.karma }, { label: "Комментариев", value: user.comments_count ?? 0 }].map((s) => (
+                      <div key={s.label} className="text-center">
+                        <div className="font-bold text-gray-900">{s.value}</div>
+                        <div className="text-xs text-gray-500">{s.label}</div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Мои посты</h3>
-                <div className="space-y-2">
-                  {posts.slice(0, 3).map((post) => (
-                    <div key={post.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{post.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{post.likes} лайков · {post.comments} комментариев</p>
-                      </div>
-                      <Icon name="ChevronRight" size={16} className="text-gray-300" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <button onClick={() => { setActivePage("home"); setCreateModal(true); }}
+                className="w-full py-3 bg-[#ff4500] text-white rounded-xl font-semibold text-sm hover:bg-[#e03d00] transition-colors flex items-center justify-center gap-2">
+                <Icon name="PlusCircle" size={18} />Создать пост
+              </button>
             </div>
           )}
 
@@ -605,56 +682,34 @@ export default function Index() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Icon name="Shield" size={20} className="text-[#ff4500]" />
-                <h2 className="font-bold text-lg text-gray-900">Панель модерации</h2>
-                <Badge className="bg-red-100 text-red-600 border-0 hover:bg-red-100">
-                  {reports.filter((r) => r.status === "pending").length} новых
-                </Badge>
+                <h2 className="font-bold text-lg text-gray-900">Модерация</h2>
+                <Badge className="bg-red-100 text-red-600 border-0 hover:bg-red-100">{reports.filter((r) => r.status === "pending").length} новых</Badge>
               </div>
-
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Жалоб всего", value: reports.length, icon: "Flag", color: "text-orange-500 bg-orange-50" },
+                  { label: "Всего", value: reports.length, icon: "Flag", color: "text-orange-500 bg-orange-50" },
                   { label: "На проверке", value: reports.filter((r) => r.status === "pending").length, icon: "Clock", color: "text-blue-500 bg-blue-50" },
                   { label: "Заблокировано", value: reports.filter((r) => r.status === "blocked").length, icon: "Ban", color: "text-red-500 bg-red-50" },
                 ].map((s) => (
                   <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${s.color}`}>
-                      <Icon name={s.icon} size={18} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-gray-900">{s.value}</div>
-                      <div className="text-xs text-gray-500">{s.label}</div>
-                    </div>
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${s.color}`}><Icon name={s.icon} size={18} /></div>
+                    <div><div className="font-bold text-gray-900">{s.value}</div><div className="text-xs text-gray-500">{s.label}</div></div>
                   </div>
                 ))}
               </div>
-
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-800">Жалобы пользователей</h3>
-                </div>
+                <div className="p-4 border-b border-gray-100"><h3 className="font-semibold text-gray-800">Жалобы пользователей</h3></div>
+                {reports.length === 0 && <p className="text-sm text-gray-400 text-center py-8">Жалоб нет</p>}
                 {reports.map((report) => (
                   <div key={report.id} className="flex items-start gap-4 p-4 border-b border-gray-50 last:border-0">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{report.post}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Автор: {report.author} · Причина: {report.reason} · Жалоб: {report.reports}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Автор: {report.author} · Причина: {report.reason} · Жалоб: {report.reports}</p>
                     </div>
                     {report.status === "pending" ? (
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleModerationAction(report.id, "block")}
-                          className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors font-medium"
-                        >
-                          Заблокировать
-                        </button>
-                        <button
-                          onClick={() => handleModerationAction(report.id, "dismiss")}
-                          className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                        >
-                          Отклонить
-                        </button>
+                        <button onClick={() => handleModerationAction(report.id, "blocked")} className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors font-medium">Заблокировать</button>
+                        <button onClick={() => handleModerationAction(report.id, "dismissed")} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 transition-colors font-medium">Отклонить</button>
                       </div>
                     ) : (
                       <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${report.status === "blocked" ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"}`}>
@@ -672,72 +727,33 @@ export default function Index() {
         <aside className="hidden xl:flex flex-col gap-4 w-64 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <Icon name="LayoutGrid" size={16} className="text-[#ff4500]" />
-              Категории
+              <Icon name="LayoutGrid" size={16} className="text-[#ff4500]" />Категории
             </h3>
             <div className="space-y-1">
               {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
+                <button key={cat.name}
                   onClick={() => { setActiveCategory(cat.name === activeCategory ? null : cat.name); setActivePage("home"); }}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                    activeCategory === cat.name ? "bg-[#fff0eb] text-[#ff4500] font-medium" : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-colors ${activeCategory === cat.name ? "bg-[#fff0eb] text-[#ff4500] font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
                   <span>{cat.emoji} {cat.name}</span>
-                  <span className="text-xs text-gray-400">{cat.count}</span>
-                </button>
-              ))}
-              {activeCategory && (
-                <button onClick={() => setActiveCategory(null)} className="w-full text-xs text-center text-gray-400 hover:text-gray-600 pt-1">
-                  Сбросить фильтр
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <Icon name="TrendingUp" size={16} className="text-[#ff4500]" />
-              Популярное
-            </h3>
-            <div className="space-y-2">
-              {popularPosts.slice(0, 3).map((post, i) => (
-                <button
-                  key={post.id}
-                  onClick={() => setActivePage("popular")}
-                  className="w-full text-left flex gap-2 hover:bg-gray-50 p-1.5 rounded-lg transition-colors"
-                >
-                  <span className="text-sm font-bold text-gray-300 w-4 shrink-0">{i + 1}</span>
-                  <div>
-                    <p className="text-xs text-gray-700 font-medium line-clamp-2">{post.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                      <Icon name="Heart" size={10} />
-                      {post.likes}
-                    </p>
-                  </div>
                 </button>
               ))}
             </div>
           </div>
+          <button onClick={() => setCreateModal(true)}
+            className="w-full py-3 bg-[#ff4500] text-white rounded-xl font-semibold text-sm hover:bg-[#e03d00] transition-colors flex items-center justify-center gap-2">
+            <Icon name="PlusCircle" size={18} />Создать пост
+          </button>
         </aside>
       </div>
 
-      {/* Bottom Nav (mobile) */}
+      {/* Mobile nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
         {navItems.slice(0, 5).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActivePage(item.id)}
-            className={`flex-1 flex flex-col items-center py-2 gap-0.5 ${activePage === item.id ? "text-[#ff4500]" : "text-gray-400"}`}
-          >
+          <button key={item.id} onClick={() => setActivePage(item.id)}
+            className={`flex-1 flex flex-col items-center py-2 gap-0.5 ${activePage === item.id ? "text-[#ff4500]" : "text-gray-400"}`}>
             <div className="relative">
               <Icon name={item.icon} size={20} />
-              {item.badge ? (
-                <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#ff4500] rounded-full text-white text-[8px] flex items-center justify-center font-bold">
-                  {item.badge}
-                </span>
-              ) : null}
+              {item.badge ? <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#ff4500] rounded-full text-white text-[8px] flex items-center justify-center font-bold">{item.badge}</span> : null}
             </div>
             <span className="text-[9px]">{item.label}</span>
           </button>
@@ -752,24 +768,19 @@ export default function Index() {
             <p className="text-sm text-gray-500 mb-4">Выберите причину жалобы</p>
             <div className="space-y-2 mb-4">
               {["Спам", "Оскорбления", "Дезинформация", "Неприемлемый контент", "Другое"].map((reason) => (
-                <button
-                  key={reason}
-                  onClick={() => handleReport(reportModal)}
-                  className="w-full text-left px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 hover:border-[#ff4500] hover:text-[#ff4500] transition-colors"
-                >
+                <button key={reason} onClick={() => handleReport(reportModal, reason)}
+                  className="w-full text-left px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 hover:border-[#ff4500] hover:text-[#ff4500] transition-colors">
                   {reason}
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setReportModal(null)}
-              className="w-full px-4 py-2.5 rounded-xl bg-gray-100 text-sm text-gray-700 hover:bg-gray-200 transition-colors font-medium"
-            >
-              Отмена
-            </button>
+            <button onClick={() => setReportModal(null)} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 text-sm text-gray-700 hover:bg-gray-200 transition-colors font-medium">Отмена</button>
           </div>
         </div>
       )}
+
+      {commentsPost && <CommentsModal post={commentsPost} currentUser={user} onClose={() => setCommentsPost(null)} />}
+      {createModal && <CreatePostModal onClose={() => setCreateModal(false)} onCreated={loadPosts} />}
     </div>
   );
 }

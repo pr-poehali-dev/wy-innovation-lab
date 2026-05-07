@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "List posts",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 404,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

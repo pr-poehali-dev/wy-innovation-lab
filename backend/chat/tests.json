@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "Unauthorized dialogs",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
